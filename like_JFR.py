@@ -4,21 +4,17 @@ import subprocess
 import re
 import numpy as np
 
-def scanf(str):
-    pattern = r'{0}\s*=\s*([-+]?(\d+(\.\d*)?|\.\d+)([eE][-+]?\d+)?)'.format("freq")
-    match = re.search(pattern, str)
-    if match != None: return np.float64(match.group(1))
-    else: return np.nan
-
 
 
 def f_target(r1, r2, e, l, meshSizeFactor):
     exe = "./main"
     args = [str(r1) , str(r2), str(e), str(l), str(meshSizeFactor)]
     process = subprocess.Popen([exe] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = process.communicate()
-    # affiche la sortie standard (stdout) de l'exécutable
-    freq = scanf(stdout.decode())
+    process.wait()
+    file = open("out.txt", "r")
+    freq = file.readline()
+    freq = float(freq)
+    file.close()
 
     print("\n\n====Iteration Resume====")
     print(f"r1 = {r1}")
@@ -47,5 +43,5 @@ f = lambda x: (f_target(r1, x[0], e, x[1], meshSizeFactor) - target)**2
 
 #res = differential_evolution(f, bounds= bds, tol = 10-8)
 #print(res)
-res = minimize(f, x0 = [r2, l], bounds = bds, tol = 1e-8, method = "Nelder-Mead")
+res = minimize(f, x0 = [r2, l], bounds = bds, tol = 1e-5, method = "Nelder-Mead")
 print(res)

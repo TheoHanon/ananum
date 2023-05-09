@@ -134,7 +134,7 @@ Matrix * compute_mass (int nNodes,
 				   double *coord,
 				   size_t ntriangles,
 				   size_t *triangleNodes, double rho){
-  Matrix *M =allocate_matrix(2*nNodes, 2*nNodes);
+  Matrix *M = allocate_matrix(2*nNodes, 2*nNodes);
   for (size_t i = 0 ; i < ntriangles ; i++){
     size_t *n = & triangleNodes [3*i];
     double x[6] = {coord[3*(n[0]-1)],coord[3*(n[0]-1)+1],

@@ -69,12 +69,11 @@ int main(int argc, char *argv[])
   double *v = malloc(A->m * sizeof(double));
   double lambda, freq;
 
-
+  FILE *file = fopen("out.txt", "w");
   lambda = power_iteration(M_new, v);
   freq = 1./(2*M_PI*sqrt(lambda));
-
-  printf("freq = %.8f\n", freq);
-
+  printf("freq = %.9lf \n", freq);
+  fprintf(file, "%.9lf ", freq);
   gmshFinalize(&ierr);
 
 
@@ -86,6 +85,7 @@ int main(int argc, char *argv[])
   free_matrix (M_new);
   free(boundary_nodes);
   free(coord);
+  fclose(file);
 
   return 0;
 }
