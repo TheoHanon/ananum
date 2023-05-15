@@ -1,6 +1,5 @@
-
 # Localisation du SDK Gmsh ; pour l'évaluation il sera bien dans le dossier parent
-GMSH_DIR := ../../../../gmsh-sdk-linux
+GMSH_DIR := ../gmsh-sdk
 
 # Choix du compilateur
 CC := gcc
@@ -14,20 +13,20 @@ INC_DIR := -I $(GMSH_DIR)/include -I header # specify include directories
 
 # Chemins vers les dossiers `lib` où se trouvent les librairies externes
 # on donne le chemin vers le dossier `lib` du SDK
-LIB_FILE := $(GMSH_DIR)/lib/libgmsh.so.4.11.1 # specify library file for compilation   #
+LIB_DIR := -L $(GMSH_DIR)/lib # specify library directories for compilation
 
 # Spécification du runtime path
-LDFLAGS := -Wl,-rpath,$(GMSH_DIR)/lib -lcunit -lm
+LDFLAGS := -Wl,-rpath,$(GMSH_DIR)/lib
 
 # On indique au compilateur de linker la librairie Gmsh
-LDLIBS := -lgmsh # -llapack
+LDLIBS := -llapack -lgmsh -lm
 
 # Nom du programme à compiler
-PROG := project
+PROG := main
 
 # Liste des objets nécessaires pour compiler le programme
 # à modifier si vous ajoutez d'autres modules !
-OBJS := elasticity.o lu.o matrix.o design.o eigen.o project.o
+OBJS := elasticity.o lu.o matrix.o design.o eigen.o main.o
 
 # Règle de compilation
 all: $(PROG)
@@ -36,13 +35,13 @@ all: $(PROG)
 # on fournit les flags de compilation CFLAGS et les chemins include INC_DIR
 # `$<` signifie: "la première dépendance" (le .c)
 %.o: %.c
-	$(CC) -g -c $(CFLAGS) $(INC_DIR) $<
+	$(CC) -c $(CFLAGS) $(INC_DIR) $<
 
 # Règle de link : on produit le programme PROG à partir des fichiers objets OBJS
 # on fournit la librairie à linker et le runtime path
 # `$^` signifie : "toutes les dépendances" (les OBJS)
 $(PROG): $(OBJS)
-	$(CC) -g -o $@ $^ $(LIB_FILE) $(LDFLAGS)
+	$(CC) -g -o $@ $^ $(LIB_DIR) $(LDLIBS) $(LDFLAGS) 
 
 # Règle de nettoyage : supprime PROG et OBJS
 clean:
