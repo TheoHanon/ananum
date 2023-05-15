@@ -26,7 +26,7 @@ void free_band_matrix(BandMatrix * mat);         // libère la mémoire de la st
 
 // Calcule une permutation pour réduire le fill-in.
 // On peut utiliser les coordonnées des noeuds ainsi que les entrées de la matrice (éventuellement)
-int compute_permutation(int * perm, double * coord, int n_nodes); 
+
 
 void print_vector(double * v, int n);   // imprime le contenu d'un vecteur (tableau) de taille n
 void print_matrix(Matrix * A);          // imprime le contenu d'une matrice
@@ -34,5 +34,14 @@ void print_matrix(Matrix * A);          // imprime le contenu d'une matrice
 int is_symmetric(Matrix * K);
 
 int inverse(Matrix* K, Matrix* M); // inverse the system and M contain K^-1M
+
+int solve_band(BandMatrix * LU, double * y);
+int lu_band(BandMatrix * A);
+int inverse_band(BandMatrix* K , BandMatrix* M);
+
+BandMatrix * allocate_band_matrix(int m, int k);
+void free_band_matrix(BandMatrix * mat);
+
+
 
 #endif

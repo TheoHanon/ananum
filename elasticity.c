@@ -108,6 +108,7 @@ Matrix * compute_stiffnes (int nNodes,
                double E, 
                double nu){
   Matrix *K = allocate_matrix (2*nNodes, 2*nNodes);
+  
   for (size_t i = 0 ; i < ntriangles ; i++){
     size_t *n = & triangleNodes [3*i];
     double x[6] = {coord[3*(n[0]-1)],coord[3*(n[0]-1)+1],
@@ -126,6 +127,7 @@ Matrix * compute_stiffnes (int nNodes,
         K->a[dofs[j]][dofs[k]] += StiffnessMatrix[j][k];
       }
     }
+    printf("\ntest\n");
   }
   return K;
 }
@@ -187,34 +189,39 @@ void get_boundary_nodes (size_t** bnd_nTags, size_t* bnd_nTags_n){
   if(dimTags)free(dimTags);
 }
 
-int assemble_system(Matrix** K, Matrix** M, double** coord, size_t** boundary_nodes, size_t* n_boundary_nodes, double E, double nu, double rho){
+int assemble_system(Matrix** K, Matrix** M, size_t** boundary_nodes, size_t* n_boundary_nodes, double** coordinates, double E, double nu, double rho){
   int ierr;
-  //gmshClear(&ierr);
+  
   gmshModelMeshRebuildNodeCache(1,&ierr);
 
   size_t *triangleTags=0, ntriangles, *triangleNodes=NULL, temp;
   get_triangles_p1 (&triangleTags, &ntriangles,&triangleNodes, &temp);
 
   size_t *nodeTags=0, nNodes;
-  double *coord_bad = 0;
-  get_nodes(&nodeTags, &nNodes, &coord_bad, &temp);
-
-  get_boundary_nodes(boundary_nodes, n_boundary_nodes); // the position in the matrix is at bnd_nodes[i]-1
+  double *coord_bad;
+  get_nodes (&nodeTags, &nNodes, &coord_bad, &temp);
   
-  *coord = (double*)malloc(3*nNodes*sizeof(double));
+  get_boundary_nodes(boundary_nodes, n_boundary_nodes); // the position in the matrix is at bnd_nodes[i]-1
+
+  double *coord = (double*)malloc(3*nNodes*sizeof(double));
+  *coordinates = (double*)malloc(2*nNodes*sizeof(double));
   // Gmsh does not provide nodes in the right order.
   for (size_t i=0;i<nNodes;i++){
-    (*coord)[3*(nodeTags[i]-1)] = coord_bad[3*i];
-    (*coord)[3*(nodeTags[i]-1)+1] = coord_bad[3*i+1];
-    (*coord)[3*(nodeTags[i]-1)+2] = coord_bad[3*i+2];
+    coord[3*(nodeTags[i]-1)] = coord_bad[3*i];
+    coord[3*(nodeTags[i]-1)+1] = coord_bad[3*i+1];
+    coord[3*(nodeTags[i]-1)+2] = coord_bad[3*i+2];
+    (*coordinates)[2*(nodeTags[i]-1)+0] = coord_bad[3*i+0];
+    (*coordinates)[2*(nodeTags[i]-1)+1] = coord_bad[3*i+1];
   }
   
-  *K = compute_stiffnes (nNodes,*coord,ntriangles,triangleNodes, E, nu);
-  *M = compute_mass (nNodes,*coord,ntriangles,triangleNodes, rho);
-
+  *K = compute_stiffnes (nNodes,coord,ntriangles,triangleNodes, E, nu);
+  
+  *M = compute_mass (nNodes,coord,ntriangles,triangleNodes, rho);
+  
   free (coord_bad);
   free (nodeTags);
   free (triangleTags);
+  free (coord);
   free (triangleNodes);
   
   return 0;

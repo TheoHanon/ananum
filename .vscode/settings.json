@@ -2,6 +2,8 @@
     "files.associations": {
         "elasticity.h": "c",
         "matrix.h": "c",
-        "optimize.h": "c"
+        "optimize.h": "c",
+        "random": "c",
+        "string.h": "c"
     }
 }

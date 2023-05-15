@@ -10,10 +10,15 @@
 #include "eigen.h"
 #include "optimize.h"
 
-#define max(a, b) \
-  ({ __typeof__ (a) _a = (a); \
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
+
+#define min(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
 
 int main(int argc, char *argv[])
 {
@@ -36,12 +41,14 @@ int main(int argc, char *argv[])
 
   // Initialize Gmsh and create geometry
   int ierr;
-  //f_target(6e-3, 11e-3, 38e-3, 82e-3, 0.8);
-  f_target(6e-3, 11e-3, 38e-3, 82e-3, 0.98);
-  f_target(6e-3, 11e-3, 30e-3, 80e-3, 0.98);
+  double r1  = 6e-3;
+  double r2  = 11e-3;
+  double e  = 38e-3;
+  double l  = 82e-3;
+
   
   gmshInitialize(argc, argv, 0, 0, &ierr);
-  designTuningFork(6e-3, 11e-3, 38e-3, 82e-3, 0.98, NULL);
+  designTuningFork(r1, r2, e, l, 0.3, NULL);
 
   // Number of vibration modes to find
   int k = atoi(argv[1]);
@@ -50,64 +57,42 @@ int main(int argc, char *argv[])
   // M is the mass matrix
   // K is the stiffness matrix
   Matrix *K, *M;
+  BandMatrix *bK, *bM, *cbK;
   size_t *boundary_nodes;
   size_t n_boundary_nodes;
   double *coord;
-  assemble_system(&K, &M, &coord, &boundary_nodes, &n_boundary_nodes, E, nu, rho);
+  assemble_system(&K, &M, &boundary_nodes, &n_boundary_nodes,&coord, E, nu, rho);
 
   
   // Remove lines from matrix that are boundary
-  Matrix *K_new;
-  Matrix *M_new;
-  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, &K_new, &M_new, NULL);
-
-  inverse(K_new, M_new);
+  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, &bK, &bM, &cbK, coord);
+ 
 
   // Power iteration + deflation to find k largest eigenvalues
-  Matrix *A = M_new; // alias for conciseness
-  double *v = malloc(A->m * sizeof(double));
+  double *v = malloc(bM->m * sizeof(double));
   double lambda, freq;
   FILE *file = fopen(argv[2], "w"); // open file to write frequencies
-  for (int ki = 0; ki < k; ki++)
-  {
-    lambda = power_iteration(A, v);
-    freq = 1. / (2 * M_PI * sqrt(lambda));
 
-    fprintf(file, "%.9lf ", freq);
+  lambda = band_power_iteration(bM, bK, cbK, v);
 
-    printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
-    // Deflate matrix
-    for (int i = 0; i < A->m; i++)
-      for (int j = 0; j < A->n; j++)
-        A->a[i][j] -= lambda * v[i] * v[j];
+  freq = 1. / (2 * M_PI * sqrt(lambda));
 
-    // Put appropriate BC and plot
-    double *vall = calloc(K->m, sizeof(double));
-    int iv = 0, i_bnd = 0;
-    for (int i = 0; i < K->m / 2; i++)
-    {
-      if (i_bnd < n_boundary_nodes && i == boundary_nodes[i_bnd])
-      {
-        i_bnd++;
-        continue;
-      }
-      vall[2 * (i)] = v[2 * iv];
-      vall[2 * (i) + 1] = v[2 * iv + 1];
-      iv++;
-    }
-    visualize_in_gmsh(vall, K->m / 2);
-  }
+  fprintf(file, "%.9lf ", freq);
 
+  printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
+
+
+  
   fclose(file);
-
-  gmshFltkRun(&ierr);
-  gmshFinalize(&ierr);
   free_matrix(K);
   free_matrix(M);
-  free_matrix(K_new);
-  free_matrix(M_new);
+  free_band_matrix(bK);
+  free_band_matrix(bM);
+  free_band_matrix(cbK);
   free(boundary_nodes);
   free(coord);
+  free(v);
+
 
   return 0;
 }

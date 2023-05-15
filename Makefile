@@ -27,7 +27,7 @@ PROG := main
 
 # Liste des objets nécessaires pour compiler le programme
 # à modifier si vous ajoutez d'autres modules !
-OBJS := elasticity.o lu.o matrix.o design.o eigen.o main.o
+OBJS := elasticity.o lu.o matrix.o design.o eigen.o project.o
 
 # Règle de compilation
 all: $(PROG)
