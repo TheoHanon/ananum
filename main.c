@@ -51,41 +51,43 @@ int main(int argc, char *argv[])
   // M is the mass matrix
   // K is the stiffness matrix
   Matrix *K, *M;
+  BandMatrix *bK, *bM, *cbK;
   size_t *boundary_nodes;
   size_t n_boundary_nodes;
   double *coord;
-  assemble_system(&K, &M, &coord, &boundary_nodes, &n_boundary_nodes, E, nu, rho);
+  assemble_system(&K, &M, &boundary_nodes, &n_boundary_nodes,&coord, E, nu, rho);
 
   
   // Remove lines from matrix that are boundary
-  Matrix *K_new;
-  Matrix *M_new;
-  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, &K_new, &M_new, NULL);
+  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, &bK, &bM, &cbK, coord);
 
-  inverse(K_new, M_new);
+  
+
 
   // Power iteration + deflation to find k largest eigenvalues
-  Matrix *A = M_new; // alias for conciseness
-  double *v = malloc(A->m * sizeof(double));
+  
+  double *v = malloc(bM->m * sizeof(double));
   double lambda, freq;
+  FILE *file = fopen("out.txt", "w"); // open file to write frequencies
 
-  FILE *file = fopen("out.txt", "w");
-  lambda = power_iteration(M_new, v);
-  freq = 1./(2*M_PI*sqrt(lambda));
-  printf("freq = %.9lf \n", freq);
+  lambda = eigen(bM, bK, cbK, v);
+
+  freq = 1. / (2 * M_PI * sqrt(lambda));
+
   fprintf(file, "%.9lf ", freq);
-  gmshFinalize(&ierr);
 
+  printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
 
-
-  free(v);
-  free_matrix (K);
-  free_matrix (M);
-  free_matrix (K_new);
-  free_matrix (M_new);
+  
+  fclose(file);
+  free_matrix(K);
+  free_matrix(M);
+  free_band_matrix(bK);
+  free_band_matrix(bM);
+  free_band_matrix(cbK);
   free(boundary_nodes);
   free(coord);
-  fclose(file);
+  free(v);
 
   return 0;
 }

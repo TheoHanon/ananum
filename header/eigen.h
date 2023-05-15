@@ -13,3 +13,8 @@ void boundary(size_t* boundary_nodes, size_t n_boundary_nodes, int* perm, double
 
 double band_power_iteration(BandMatrix *bM, BandMatrix *bK, BandMatrix* ccK, double *v);
 int cmp(const void * a, const void * b);
+
+double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v);
+void shift(BandMatrix *M, BandMatrix *K, double lambda);
+void copy_band_matrix(BandMatrix *A, BandMatrix *cA);
+double get_eigenvalue(BandMatrix *M, BandMatrix *K, double * eigen_vector);

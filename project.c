@@ -23,13 +23,16 @@
 int main(int argc, char *argv[])
 {
 
-  if (argc < 2)
+  if (argc < 5)
   {
     printf("Usage: \n"
-           "./project <k> <out>\n"
+           "./main <r1> <r2> <e> <l> <MeshSizeFactor> \n"
            "---------------------------- \n\n"
-           "- k is the number of frequencies to compute. \n "
-           "- out is the output file to write the frequencies. \n "
+           "r1 = inner radius (half-distance between prongs)\n"
+           "r2 = outer radius (half-width of fork)\n"
+           "e  = length of handle\n"
+           "l  = length of prongs\n"
+           "meshSizeFactor = meshSize / width of prongs\n"
            "\n");
     return -1;
   }
@@ -41,14 +44,18 @@ int main(int argc, char *argv[])
 
   // Initialize Gmsh and create geometry
   int ierr;
-  double r1  = 6e-3;
-  double r2  = 11e-3;
-  double e  = 38e-3;
-  double l  = 82e-3;
+  double r1, r2, e, l, meshSizeFactor;
+
+  r1 = atof(argv[1]);
+  r2 = atof(argv[2]);
+  e = atof(argv[3]);
+  l = atof(argv[4]);
+  meshSizeFactor = atof(argv[5]); 
 
   
   gmshInitialize(argc, argv, 0, 0, &ierr);
-  designTuningFork(r1, r2, e, l, 0.3, NULL);
+  //designTuningFork3(r1, r2, e/2, l, e/2, 0.3, NULL);
+  designTuningFork(r1, r2, e, l, meshSizeFactor, NULL);
 
   // Number of vibration modes to find
   int k = atoi(argv[1]);
@@ -71,16 +78,18 @@ int main(int argc, char *argv[])
   // Power iteration + deflation to find k largest eigenvalues
   double *v = malloc(bM->m * sizeof(double));
   double lambda, freq;
-  FILE *file = fopen(argv[2], "w"); // open file to write frequencies
+  FILE *file = fopen("xyuv.txt", "w"); // open file to write frequencies
 
   lambda = band_power_iteration(bM, bK, cbK, v);
 
   freq = 1. / (2 * M_PI * sqrt(lambda));
 
+  for (int i = 0; K -> m; i++){
+      fprintf("%.5lf;%.5lf;%.5lf;%.5lf\n", v[i]);
+  }
   fprintf(file, "%.9lf ", freq);
 
   printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
-
 
   
   fclose(file);

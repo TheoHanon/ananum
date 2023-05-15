@@ -127,7 +127,6 @@ Matrix * compute_stiffnes (int nNodes,
         K->a[dofs[j]][dofs[k]] += StiffnessMatrix[j][k];
       }
     }
-    printf("\ntest\n");
   }
   return K;
 }
