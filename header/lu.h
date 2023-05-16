@@ -14,7 +14,7 @@
 int lu(Matrix * A);
 
 // Idem pour une matrice bande
-int lu_band(BandMatrix * A);
+//int lu_band(BandMatrix * A);
 
 // Résout le système L*U*x = y,
 // avec LU la décomposition obtenue par la fonction lu().
@@ -23,6 +23,6 @@ int lu_band(BandMatrix * A);
 int solve(Matrix * LU, double * y);
 
 // Idem pour une matrice bande
-int solve_band(BandMatrix * LU, double * y);
+//int solve_band(BandMatrix * LU, double * y);
 
 #endif

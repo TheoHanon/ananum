@@ -66,8 +66,10 @@ int main (int argc, char *argv[]) {
   assemble_system(&K, &M, &boundary_nodes, &n_boundary_nodes, &symmetry_nodes, &n_symmetry_nodes, &coord, E, nu, rho);
 
   // Remove lines from matrix that are boundary
-  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, symmetry_nodes, n_symmetry_nodes, &bK, &bM, &cbK, coord);
-
+  int ** rmbl = remove_bnd_lines(K, &M, boundary_nodes, n_boundary_nodes, symmetry_nodes, n_symmetry_nodes, &bK, &bM, &cbK, coord);
+  int * remaining = rmbl[0];
+  int * map       = rmbl[1];
+  free(rmbl);
 
   // Power iteration + deflation to find k largest eigenvalues
   double *v = malloc(bM->m * sizeof(double));
@@ -75,18 +77,7 @@ int main (int argc, char *argv[]) {
   FILE *file = fopen(argv[2], "w"); // open file to write frequencies
 
   lu_band(bK);
-  /*
-  for(int i = 0; i < k; i++){
-    lambda = eigen(bM, bK, cbK, v);
 
-    freq = 1. / (2 * M_PI * sqrt(lambda));
-
-    fprintf(file, "%.9lf ", freq);
-
-    printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
-
-    if(i != k-1) deflate(cbK,bM,v,lambda);
-  }*/
   lambda = eigen(bM, bK, cbK, v);
 
   freq = 1. / (2 * M_PI * sqrt(lambda));
@@ -95,8 +86,63 @@ int main (int argc, char *argv[]) {
 
   printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
 
+  
+  for(int i = 1; i < k; i++){
+    deflate(cbK,M,v,lambda);
 
+    lambda = eigen_full(M, bK, cbK, v);
+
+    freq = 1. / (2 * M_PI * sqrt(lambda));
+
+    fprintf(file, "%.9lf ", freq);
+
+    printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
+
+  }
   fclose(file);
+
+  file = fopen("displacement.txt", "w");
+  size_t n_new = M->n;
+  size_t n_rem = K->n - n_new;
+  double x, y, dis_x, dis_y;
+  for(size_t i = 0; i < n_rem; i++){
+    if(i+1 == n_rem || remaining[i+1] != remaining[i]+1){
+      //printf("Condition rem[i] = %i\n",remaining[i]);
+      for(size_t j = 0; j < n_new; j++){
+        if(map[j] == remaining[i]+1){
+          x = coord[remaining[i]];
+          y = coord[remaining[i]+1];
+          dis_x = 0.0;
+          dis_y = v[j];
+          map[j] = -1;
+          break;
+        }
+      }
+    } else {
+      x = coord[remaining[i]];
+      //printf("rem[i] = %i\n",remaining[i]+1);
+      y = coord[remaining[i]+1];
+      dis_x = 0.0;
+      dis_y = 0.0;
+      i++;
+    }
+    fprintf(file, "%.9lf; %.9lf; %.9lf; %.9lf\n", x, y, dis_x, dis_y);
+  }
+  for(size_t i = 0; i < n_new; i++){
+    if(map[i] == -1){
+      continue;
+    }
+    x = coord[map[i]];
+    y = coord[map[i]+1];
+    dis_x = v[i];
+    i++;
+    dis_y = v[i];
+    fprintf(file, "%.9lf; %.9lf; %.9lf; %.9lf\n", x, y, dis_x, dis_y);
+  }
+  fclose(file);
+
+  free(map);
+  free(remaining);
   free_matrix(K);
   free_matrix(M);
   free_band_matrix(bK);
