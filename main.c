@@ -35,40 +35,42 @@ int main(int argc, char *argv[])
 
   // Initialize Gmsh and create geometry
   int ierr;
-  double r1, r2, e, l, meshSizeFactor;
+  double r1, r2, e, l, c, meshSizeFactor;
 
    r1 = atof(argv[1]);
    r2 = atof(argv[2]);
    e = atof(argv[3]);
    l = atof(argv[4]);
+   c = l > 40e-3 ? l/8.0 : 5e-3;
    meshSizeFactor = atof(argv[5]); 
 
   gmshInitialize(argc, argv, 0, 0, &ierr);
-  designTuningFork(r1, r2, e, l, meshSizeFactor,  NULL);
+  designTuningForkSym2(r1, r2, e, l, c, 0.3, NULL);
   
+  // Number of vibration modes to find
+  int k = atoi(argv[1]);
+
 
   // Assemble the 2 matrices of the linear elasticity problem:
   // M is the mass matrix
   // K is the stiffness matrix
   Matrix *K, *M;
   BandMatrix *bK, *bM, *cbK;
-  size_t *boundary_nodes;
+  size_t* boundary_nodes;
   size_t n_boundary_nodes;
+  size_t* symmetry_nodes;
+  size_t n_symmetry_nodes;
   double *coord;
-  assemble_system(&K, &M, &boundary_nodes, &n_boundary_nodes,&coord, E, nu, rho);
+  assemble_system(&K, &M, &boundary_nodes, &n_boundary_nodes, &symmetry_nodes, &n_symmetry_nodes, &coord, E, nu, rho);
 
-  
   // Remove lines from matrix that are boundary
-  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, &bK, &bM, &cbK, coord);
-
-  
+  remove_bnd_lines(K, M, boundary_nodes, n_boundary_nodes, symmetry_nodes, n_symmetry_nodes, &bK, &bM, &cbK, coord);
 
 
   // Power iteration + deflation to find k largest eigenvalues
-  
   double *v = malloc(bM->m * sizeof(double));
   double lambda, freq;
-  FILE *file = fopen("out.txt", "w"); // open file to write frequencies
+  FILE *file = fopen(argv[2], "w"); // open file to write frequencies
 
   lambda = eigen(bM, bK, cbK, v);
 
@@ -78,7 +80,8 @@ int main(int argc, char *argv[])
 
   printf("lambda = %.9e, f = %.3lf\n", lambda, freq);
 
-  
+
+
   fclose(file);
   free_matrix(K);
   free_matrix(M);

@@ -3,6 +3,7 @@
 #include "matrix.h"
 #include "eigen.h"
 #include <stdio.h>
+#include <string.h>
 
 #define max(a, b) \
   ({ __typeof__ (a) _a = (a); \
@@ -15,47 +16,95 @@
      _a < _b ? _a : _b; })
 
 // Remove lines and columns corresponding to boundary nodes from K and M
-void remove_bnd_lines(Matrix *K, Matrix *M, size_t *bnd_nodes, size_t n_bnd_nodes, BandMatrix **K_new, BandMatrix **M_new, BandMatrix **cK, double *coord)
-{
+void remove_bnd_lines(Matrix *K, Matrix *M, size_t *clamped_nodes, size_t n_clamped_nodes, size_t *symmetry_nodes, size_t n_symmetry_nodes, BandMatrix **K_new, BandMatrix **M_new, BandMatrix **cK, double* coord){
+  
   size_t n = K->n;
-  size_t n_new = K->n - 2 * n_bnd_nodes;
-  int perm[(int)n / 2], band_size;
+  size_t n_new;
+  int *map;
+  int perm[(int) n/2], band_size;
 
-  for (int i = 0; i < (int)n / 2; i++)
-    perm[i] = i;
-  compute_permutation(perm, coord, (int)n / 2);
+  for (int i = 0 ; i < (int) n/2; i++) perm[i] = i;
+  compute_permutation(perm, coord, (int) n /2);
+  
+  if(n_symmetry_nodes == 0){
+    n_new = K->n - 2*n_clamped_nodes;
+  
+    map = malloc(n_new * sizeof(int));
+    int i_bnd = 0;
+    int i_new = 0;
+    int to_write = 0;
 
-  int *map = malloc(n_new * sizeof(int));
-  int i_bnd = 0;
-  int i_new = 0;
-  int to_write = 0;
+    for (int i=0; i< (int) n/2; i++){
+      to_write = 1;
+      for (i_bnd = 0; i_bnd < n_clamped_nodes; i_bnd++){
+        if (perm[i] == clamped_nodes[i_bnd]) {
+          to_write = 0;
+          break;
+        } 
+      }
+      if (to_write){
+        map[2*i_new  ] = 2*perm[i];
+        map[2*i_new+1] = 2*perm[i]+1;
+        i_new += 1;}
+    }
+  }
 
-  for (int i = 0; i < (int)n / 2; i++)
-  {
-    to_write = 1;
-    for (i_bnd = 0; i_bnd < n_bnd_nodes; i_bnd++)
-    {
-      if (perm[i] == bnd_nodes[i_bnd])
-      {
-        to_write = 0;
-        break;
+  else {
+    size_t i_clm=0,i_sym=0;
+    size_t nbr_comm = 0;
+    while(i_clm < n_clamped_nodes && i_sym < n_symmetry_nodes){
+
+      if (clamped_nodes[i_clm] < symmetry_nodes[i_sym]) { 
+        i_clm++;
+      } else if(symmetry_nodes[i_sym] < clamped_nodes[i_clm]){
+        i_sym++;
+      } else {
+        symmetry_nodes[i_sym] = SIZE_MAX;
+        i_clm++;
+        i_sym++;
+        nbr_comm++;
       }
     }
-    if (to_write)
-    {
-      map[2 * i_new] = 2 * perm[i];
-      map[2 * i_new + 1] = 2 * perm[i] + 1;
-      i_new += 1;
+
+    n_new = K->n - 2*n_clamped_nodes - n_symmetry_nodes + nbr_comm;
+
+
+    map = malloc(n_new * sizeof(int));
+    int i_new = 0;
+    int to_write = 0;
+
+
+    for (int i=0; i< (int) n/2; i++){
+      to_write = 2;
+      for (i_clm = 0; i_clm < n_clamped_nodes; i_clm++){
+        if (perm[i] == clamped_nodes[i_clm]) {
+          to_write = 0;
+          break;
+        }
+      }
+      if(to_write == 2){
+        for (i_sym = 0; i_sym < n_symmetry_nodes; i_sym++){
+          if (perm[i] == symmetry_nodes[i_sym]) {
+            to_write = 1;
+            break;
+          } 
+        }
+      }
+      if (to_write == 1){
+        map[i_new] = 2*perm[i]+1;
+        i_new++;}
+      if (to_write == 2){
+        map[i_new] = 2*perm[i];
+        i_new++;
+        map[i_new] = 2*perm[i]+1;
+        i_new++;}
     }
   }
 
   band_size = 0;
-  for (int i = 0; i < n_new; i++)
-  {
-    for (int j = i; j < n_new; j++)
-    {
-      if (fabs(K->a[map[i]][map[j]]) > 0.0 || fabs(M->a[map[i]][map[j]]) > 0.0)
-        band_size = max(band_size, abs(i - j));
+  for (int i = 0 ; i < n_new; i++) {
+    for (int j = i ; j < n_new; j++) {
+      if (fabs(K -> a[map[i]][map[j]]) > 0.0 || fabs(M -> a[map[i]][map[j]]) > 0.0) band_size = max(band_size, abs(i - j));
     }
   }
 
@@ -63,15 +112,13 @@ void remove_bnd_lines(Matrix *K, Matrix *M, size_t *bnd_nodes, size_t n_bnd_node
 
   *K_new = allocate_band_matrix(n_new, band_size);
   *M_new = allocate_band_matrix(n_new, band_size);
-  *cK = allocate_band_matrix(n_new, band_size);
+  *cK    = allocate_band_matrix(n_new, band_size);
 
-  for (int i = 0; i < n_new; i++)
-  {
-    for (int j = max(0, i - band_size); j <= min(n_new - 1, i + band_size); j++)
-    {
-      (*K_new)->a[i][j] = K->a[map[i]][map[j]];
-      (*cK)->a[i][j] = K->a[map[i]][map[j]];
-      (*M_new)->a[i][j] = M->a[map[i]][map[j]];
+  for (int i = 0 ; i < n_new; i++){
+    for (int j = max(0, i-band_size) ; j <= min(n_new-1, i+band_size); j++) {
+        (*K_new) -> a[i][j] = K -> a[map[i]][map[j]];
+        (*cK)    -> a[i][j] = K -> a[map[i]][map[j]];
+        (*M_new) -> a[i][j] = M -> a[map[i]][map[j]];
     }
   }
   free(map);
@@ -197,7 +244,7 @@ double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v)
   k = bM->k;
   cM = allocate_band_matrix(n, k);
 
-  lu_band(bK);
+  //lu_band(bK);
   for (int i = 0; i < n; i++)
     v[i] = 0;
   v[0] = v[1] = 1;
@@ -211,9 +258,9 @@ double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v)
     solve_band(bK, Mv);
     normalize(Mv, n);
     band_matrix_times_vector(bM, Mv, v);
-    printf("\n===== Iteration %d =====\n", it+1);
+    //printf("\n===== Iteration %d =====\n", it+1);
     lambda = inner(Mv, v, n);
-    printf("λ = %.9e\n", lambda);
+    //printf("λ = %.9e\n", lambda);
     diff = fabs((lambda - lambda_prev) / lambda_prev);
     for (int i = 0; i < n; i++)
       v[i] = Mv[i];
@@ -222,7 +269,7 @@ double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v)
   }
 
 
-  printf("λ = %.9e\n", lambda);
+  //printf("λ = %.9e\n", lambda);
 
   lambda = get_eigenvalue(bM, ccK, v);
 
@@ -240,9 +287,9 @@ double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v)
     band_matrix_times_vector(ccK, v, Mv);
     solve_band(cM, Mv);
     normalize(Mv, n);
-    printf("\n===== Iteration %d =====\n", it+1);
+    //printf("\n===== Iteration %d =====\n", it+1);
     lambda = get_eigenvalue(bM, ccK, Mv);
-    printf("λ = %.9e\n", lambda);
+    //printf("λ = %.9e\n", lambda);
     diff = fabs((lambda - lambda_prev) / lambda_prev);
     for (int i = 0; i < n; i++) v[i] = Mv[i];
     if (diff < rtol)
@@ -253,20 +300,96 @@ double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v)
   return lambda;
 }
 
+
+
+/*
+double eigen_full(Matrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v)
+{
+  int n = bM->m, k;
+  double Mv[n], lambda, lambda_prev, diff, rtol;
+  BandMatrix *cM;
+  // Initialization
+
+  lambda = 1;
+  rtol = 1e-5;
+  k = bM->k;
+  cM = allocate_band_matrix(n, k);
+
+  //lu_band(bK);
+  for (int i = 0; i < n; i++)
+    v[i] = 0;
+  v[0] = v[1] = 1;
+  normalize(v, n);
+
+  // Power Iteration
+  for (int it = 0; it < 1e4; it++)
+  {
+    lambda_prev = lambda;
+    band_matrix_times_vector(bM, v, Mv);
+    solve_band(bK, Mv);
+    normalize(Mv, n);
+    band_matrix_times_vector(bM, Mv, v);
+    //printf("\n===== Iteration %d =====\n", it+1);
+    lambda = inner(Mv, v, n);
+    //printf("λ = %.9e\n", lambda);
+    diff = fabs((lambda - lambda_prev) / lambda_prev);
+    for (int i = 0; i < n; i++)
+      v[i] = Mv[i];
+    if (diff < rtol)
+      break;
+  }
+
+
+  //printf("λ = %.9e\n", lambda);
+
+  lambda = get_eigenvalue(bM, ccK, v);
+
+  rtol = 1e-9;
+  
+
+  // Rayleigh iteration
+
+  for (int it = 0; it < 1e4; it++)
+  {
+    lambda_prev = lambda;
+    copy_band_matrix(bM, cM);
+    shift(cM, ccK, lambda);
+    lu_band(cM);
+    band_matrix_times_vector(ccK, v, Mv);
+    solve_band(cM, Mv);
+    normalize(Mv, n);
+    //printf("\n===== Iteration %d =====\n", it+1);
+    lambda = get_eigenvalue(bM, ccK, Mv);
+    //printf("λ = %.9e\n", lambda);
+    diff = fabs((lambda - lambda_prev) / lambda_prev);
+    for (int i = 0; i < n; i++) v[i] = Mv[i];
+    if (diff < rtol)
+      break;
+  }
+
+  free_band_matrix(cM);
+  return lambda;
+}*/
+
+
+
+
+
+
 void copy_band_matrix(BandMatrix *A, BandMatrix *cA)
 {
   int m, k;
 
   m = A->m;
   k = A->k;
-
-  for (int i = 0; i < m; i++)
+  memcpy(cA->data,A->data,m*(2*k+1)*sizeof(double));
+  /*for (int i = 0; i < m; i++)
   {
     for (int j = max(0, i - k); j <= min(m - 1, i + k); j++)
     {
       cA->a[i][j] = A->a[i][j];
     }
-  }
+  }*/
   return;
 }
 
@@ -369,4 +492,18 @@ double power_iteration(Matrix *A, double *v)
   }
 
   return lambda;
+}
+
+
+void deflate(BandMatrix *K, BandMatrix *M, double *eigenvect, double lambda){
+  int m = K->m;
+  int k = K->k;
+  double Kv[m];
+  band_matrix_times_vector(K,eigenvect,Kv);
+  //double fac = inner(eigenvect,eigenvect,m);
+  for(int i = 0; i < m; i++){
+    for (int j = max(0, i - k); j <= min(m - 1, i + k); j++){
+      M -> a [i][j] -= lambda * Kv[i] * eigenvect[j]; // / fac;
+    }
+  }
 }

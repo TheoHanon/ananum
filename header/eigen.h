@@ -1,4 +1,6 @@
-void remove_bnd_lines (Matrix *K, Matrix *M, size_t *bnd_nodes, size_t n_bnd_nodes, BandMatrix **K_new, BandMatrix **M_new, BandMatrix **cK, double* coord);
+#include <stdint.h>
+
+void remove_bnd_lines(Matrix *K, Matrix *M, size_t *clamped_nodes, size_t n_clamped_nodes, size_t *symmetry_nodes, size_t n_symmetry_nodes, BandMatrix **K_new, BandMatrix **M_new, BandMatrix **cK, double* coord);
 
 // inner product of 2 vectors
 double inner(double* a, double* b, int n);
@@ -18,3 +20,5 @@ double eigen(BandMatrix *bM, BandMatrix *bK, BandMatrix *ccK, double *v);
 void shift(BandMatrix *M, BandMatrix *K, double lambda);
 void copy_band_matrix(BandMatrix *A, BandMatrix *cA);
 double get_eigenvalue(BandMatrix *M, BandMatrix *K, double * eigen_vector);
+
+void deflate(BandMatrix *K, BandMatrix *M, double *eigenvect, double lambda);
